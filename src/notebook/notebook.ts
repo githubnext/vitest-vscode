@@ -58,13 +58,14 @@ export class TsNotebookSerializer implements vscode.NotebookSerializer {
 export class TsNotebookKernel {
   readonly id = 'ts-notebook-renderer-kernel'
   public readonly label = 'TypeScript Notebook Kernel'
-  readonly supportedLanguages = ['json']
+  readonly supportedLanguages = ['typescript']
 
   private _executionOrder = 0
   private readonly _controller: vscode.NotebookController
 
   constructor() {
-    this._controller = vscode.notebooks.createNotebookController(this.id, 'ts-notebook-renderer', this.label)
+    // `ts-notebook` here matches the one in `registerNotebookSerializer` and in `package.json`
+    this._controller = vscode.notebooks.createNotebookController(this.id, 'ts-notebook', this.label)
 
     this._controller.supportedLanguages = this.supportedLanguages
     this._controller.supportsExecutionOrder = true
@@ -88,8 +89,7 @@ export class TsNotebookKernel {
 
     try {
       execution.replaceOutput([new vscode.NotebookCellOutput([
-        vscode.NotebookCellOutputItem.json(JSON.parse(cell.document.getText()), 'x-application/ts-notebook-renderer'),
-        vscode.NotebookCellOutputItem.json(JSON.parse(cell.document.getText())),
+        vscode.NotebookCellOutputItem.text(cell.document.getText()),
       ])])
 
       execution.end(true, Date.now())
