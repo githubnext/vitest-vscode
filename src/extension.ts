@@ -26,6 +26,7 @@ import { TestWatcher } from './watch'
 import type { VitestWorkspaceConfig } from './config'
 import { fetchVitestConfig } from './pure/watch/vitestConfig'
 import { openTestTag } from './tags'
+import { TsNotebookSerializer } from './notebook/notebook'
 
 export async function activate(context: vscode.ExtensionContext) {
   await detectVitestEnvironmentFolders()
@@ -79,6 +80,8 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidChangeTextDocument(e =>
       fileDiscoverer.discoverTestFromDoc(ctrl, e.document),
     ),
+    vscode.workspace.registerNotebookSerializer('ts-notebook', new TsNotebookSerializer(), { transientOutputs: true }),
+    //      new TsNotebookKernel(),
   )
 }
 
