@@ -1,75 +1,28 @@
+import * as path from 'node:path'
 import * as vscode from 'vscode'
-import JSON5 from 'json5'
-
-interface TsNotebookData {
-  cells: TsNotebookCell[]
-}
-
-interface TsNotebookCell {
-  language: string
-  value: string
-  kind: vscode.NotebookCellKind
-  editable?: boolean
-}
-
-export class TsNotebookSerializer implements vscode.NotebookSerializer {
-  public readonly label: string = 'TypeScript Notebook Serializer'
-
-  constructor() {
-  }
-
-  public async deserializeNotebook(data: Uint8Array, _token: vscode.CancellationToken): Promise<vscode.NotebookData> {
-    const contents = new TextDecoder().decode(data)
-
-    // Read file contents
-    let raw: TsNotebookData
-    try {
-      raw = <TsNotebookData>JSON5.parse(contents)
-    }
-    catch {
-      raw = { cells: [] }
-    }
-
-    const cells = raw.cells.map(item => new vscode.NotebookCellData(
-      item.kind,
-      item.value,
-      item.language,
-    ))
-
-    return new vscode.NotebookData(cells,
-    )
-  }
-
-  public async serializeNotebook(data: vscode.NotebookData, _token: vscode.CancellationToken): Promise<Uint8Array> {
-    const contents: TsNotebookData = { cells: [] }
-
-    for (const cell of data.cells) {
-      contents.cells.push({
-        kind: cell.kind,
-        language: cell.languageId,
-        value: cell.value,
-      })
-    }
-
-    return new TextEncoder().encode(JSON5.stringify(contents))
-  }
-}
+import { ApiProcess } from '../pure/ApiProcess'
+import { getVitestCommand } from '../pure/utils'
 
 export class TsNotebookKernel {
   readonly id = 'ts-notebook-renderer-kernel'
   public readonly label = 'TypeScript Notebook Kernel'
-  readonly supportedLanguages = ['typescript']
+  readonly supportedLanguages = ['typescriptreact', 'typescript', 'javascriptreact', 'javascript']
 
   private _executionOrder = 0
   private readonly _controller: vscode.NotebookController
+  private readonly _apiProcess: ApiProcess
 
-  constructor() {
+  constructor(private _workspace: string) {
     // `ts-notebook` here matches the one in `registerNotebookSerializer` and in `package.json`
     this._controller = vscode.notebooks.createNotebookController(this.id, 'ts-notebook', this.label)
 
     this._controller.supportedLanguages = this.supportedLanguages
     this._controller.supportsExecutionOrder = true
     this._controller.executeHandler = this._executeAll.bind(this)
+
+    const vitest = getVitestCommand(this._workspace) ?? { cmd: 'npx', args: ['vitest'] }
+    this._apiProcess = new ApiProcess(vitest, this._workspace, {}, false)
+    this._apiProcess.start()
   }
 
   dispose(): void {
@@ -88,8 +41,21 @@ export class TsNotebookKernel {
     execution.start(Date.now())
 
     try {
+      // TODO(jaked) should await server start / client connection
+      const client = this._apiProcess.client
+      if (!client)
+        throw new Error('Vitest client not available')
+
+      // const files = await client.rpc.getFiles()
+      // execution.replaceOutput([new vscode.NotebookCellOutput([
+      //   vscode.NotebookCellOutputItem.json(files.map(f => f.filepath)),
+      // ])])
+
+      const testFile = await client.rpc.readTestFile(path.join(this._workspace, cell.document.getText()))
+      if (!testFile)
+        throw new Error('no such test file')
       execution.replaceOutput([new vscode.NotebookCellOutput([
-        vscode.NotebookCellOutputItem.text(cell.document.getText()),
+        vscode.NotebookCellOutputItem.text(testFile),
       ])])
 
       execution.end(true, Date.now())

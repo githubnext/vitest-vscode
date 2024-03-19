@@ -26,7 +26,8 @@ import { TestWatcher } from './watch'
 import type { VitestWorkspaceConfig } from './config'
 import { fetchVitestConfig } from './pure/watch/vitestConfig'
 import { openTestTag } from './tags'
-import { TsNotebookKernel, TsNotebookSerializer } from './notebook/notebook'
+import { TsNotebookSerializer } from './notebook/TsNotebookSerializer'
+import { TsNotebookKernel } from './notebook/TsNotebookKernel'
 
 export async function activate(context: vscode.ExtensionContext) {
   await detectVitestEnvironmentFolders()
@@ -81,7 +82,8 @@ export async function activate(context: vscode.ExtensionContext) {
       fileDiscoverer.discoverTestFromDoc(ctrl, e.document),
     ),
     vscode.workspace.registerNotebookSerializer('ts-notebook', new TsNotebookSerializer(), { transientOutputs: true }),
-    new TsNotebookKernel(),
+    // TODO(jaked) handle multiple folders in workspace
+    new TsNotebookKernel(workspaceConfigs[0].workspace.uri.fsPath),
   )
 }
 
