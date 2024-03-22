@@ -5,10 +5,15 @@ interface TsNotebookData {
   cells: TsNotebookCell[]
 }
 
+interface TsNotebookCellMetadata {
+  id: string
+}
+
 interface TsNotebookCell {
   language: string
   value: string
   kind: vscode.NotebookCellKind
+  metadata: TsNotebookCellMetadata
   editable?: boolean
 }
 
@@ -30,14 +35,17 @@ export class TsNotebookSerializer implements vscode.NotebookSerializer {
       raw = { cells: [] }
     }
 
-    const cells = raw.cells.map(item => new vscode.NotebookCellData(
-      item.kind,
-      item.value,
-      item.language,
-    ))
+    const cells = raw.cells.map((item) => {
+      const cellData = new vscode.NotebookCellData(
+        item.kind,
+        item.value,
+        item.language,
+      )
+      cellData.metadata = item.metadata
+      return cellData
+    })
 
-    return new vscode.NotebookData(cells,
-    )
+    return new vscode.NotebookData(cells)
   }
 
   public async serializeNotebook(data: vscode.NotebookData, _token: vscode.CancellationToken): Promise<Uint8Array> {
@@ -48,6 +56,7 @@ export class TsNotebookSerializer implements vscode.NotebookSerializer {
         kind: cell.kind,
         language: cell.languageId,
         value: cell.value,
+        metadata: cell.metadata as TsNotebookCellMetadata,
       })
     }
 

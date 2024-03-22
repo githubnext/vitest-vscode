@@ -28,6 +28,7 @@ import { fetchVitestConfig } from './pure/watch/vitestConfig'
 import { openTestTag } from './tags'
 import { TsNotebookSerializer } from './notebook/TsNotebookSerializer'
 import { TsNotebookKernel } from './notebook/TsNotebookKernel'
+import { handleDidChangeNotebookDocument } from './notebook/handleDidChangeNotebookDocument'
 
 export async function activate(context: vscode.ExtensionContext) {
   await detectVitestEnvironmentFolders()
@@ -84,6 +85,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.workspace.registerNotebookSerializer('ts-notebook', new TsNotebookSerializer(), { transientOutputs: true }),
     // TODO(jaked) handle multiple folders in workspace
     new TsNotebookKernel(workspaceConfigs[0].workspace.uri.fsPath),
+    vscode.workspace.onDidChangeNotebookDocument(handleDidChangeNotebookDocument),
   )
 }
 
