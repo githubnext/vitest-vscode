@@ -1,7 +1,14 @@
-import * as path from 'node:path'
 import * as vscode from 'vscode'
+import type { CellOutput } from 'vitest'
 import { ApiProcess } from '../pure/ApiProcess'
 import { getVitestCommand } from '../pure/utils'
+
+function cellOutputToNotebookCellOutput(cellOutput: CellOutput) {
+  return new vscode.NotebookCellOutput(cellOutput.items.map((item) => {
+    const data = new Uint8Array(item.data)
+    return new vscode.NotebookCellOutputItem(data, item.mime)
+  }))
+}
 
 export class TsNotebookKernel {
   readonly id = 'ts-notebook-renderer-kernel'
@@ -31,10 +38,10 @@ export class TsNotebookKernel {
 
   private _executeAll(cells: vscode.NotebookCell[], _notebook: vscode.NotebookDocument, _controller: vscode.NotebookController): void {
     for (const cell of cells)
-      this._doExecution(cell)
+      this._doExecution(_notebook.uri.fsPath, cell)
   }
 
-  private async _doExecution(cell: vscode.NotebookCell): Promise<void> {
+  private async _doExecution(path: string, cell: vscode.NotebookCell): Promise<void> {
     const execution = this._controller.createNotebookCellExecution(cell)
 
     execution.executionOrder = ++this._executionOrder
@@ -46,17 +53,9 @@ export class TsNotebookKernel {
       if (!client)
         throw new Error('Vitest client not available')
 
-      // const files = await client.rpc.getFiles()
-      // execution.replaceOutput([new vscode.NotebookCellOutput([
-      //   vscode.NotebookCellOutputItem.json(files.map(f => f.filepath)),
-      // ])])
-
-      const testFile = await client.rpc.readTestFile(path.join(this._workspace, cell.document.getText()))
-      if (!testFile)
-        throw new Error('no such test file')
-      execution.replaceOutput([new vscode.NotebookCellOutput([
-        vscode.NotebookCellOutputItem.text(testFile),
-      ])])
+      const cellOutput = await client.rpc.executeCell(path, cell.metadata.id, cell.document.languageId, cell.document.getText())
+      const notebookCellOutput = cellOutputToNotebookCellOutput(cellOutput)
+      execution.replaceOutput(notebookCellOutput)
 
       execution.end(true, Date.now())
     }
